@@ -1,8 +1,8 @@
 import asyncio
 import pickle
-from asyncio import StreamReader, StreamWriter
+from asyncio import StreamReader, StreamWriter, Task
 from dataclasses import dataclass
-
+import traceback
 
 @dataclass(frozen=True, eq=True, order=True)
 class Node:
@@ -33,6 +33,7 @@ class Transport:
         self.self_node = self_node
         self.connections: dict[Node, Connection | None] = {node: None for node in self.nodes}
         self.running = True
+        self.connection_keeper_tasks: list[Task] = []
 
     async def on_client_connected(self, reader: StreamReader, writer: StreamWriter):
         conn = Connection(reader, writer)
@@ -49,7 +50,8 @@ class Transport:
             try:
                 message = await self.receive_from_connection(conn)
                 await self.on_message_received_callback(node, message)
-            except Exception:
+            except Exception as e:
+                # traceback.print_exception(e)
                 await self.handle_disconnect(node)
                 break
 
@@ -65,7 +67,8 @@ class Transport:
             return
         try:
             await self.send_to_connection(self.connections[node], message)
-        except Exception:
+        except Exception as e:
+            # traceback.print_exception(e)
             await self.handle_disconnect(node)
 
     def should_connect_to(self, node: Node):
@@ -95,7 +98,8 @@ class Transport:
         for node in self.nodes:
             if self.should_connect_to(node):
                 print(f'Started connection keeper for {node}')
-                asyncio.ensure_future(self.node_connection_keeper(node))
+                task = asyncio.create_task(self.node_connection_keeper(node))
+                self.connection_keeper_tasks.append(task)
 
     async def send_to_connection(self, conn: Connection, message):
         pickled = pickle.dumps(message)
@@ -107,3 +111,8 @@ class Transport:
         message_len = int.from_bytes(await conn.reader.readexactly(8), byteorder='little', signed=False)
         pickled = await conn.reader.readexactly(message_len)
         return pickle.loads(pickled)
+
+    def shutdown(self):
+        for task in self.connection_keeper_tasks:
+            task.cancel()
+        self.server.close()

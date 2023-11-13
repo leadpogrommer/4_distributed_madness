@@ -1,9 +1,7 @@
-from dataclasses import dataclass, field as dataclass_field
 import asyncio
-from asyncio import StreamReader, StreamWriter
-import pickle
-from aioconsole import ainput
+from signal import SIGINT, SIGTERM
 import sys
+from ui.debug_ui import start_debug_ui
 
 from raft import RaftServer
 from transport import Node, Transport
@@ -30,12 +28,13 @@ async def main():
         my_node, nodes, on_message, on_connected, on_disconnected
     )
     raft = RaftServer(transport)
+    start_debug_ui(raft)
     await raft.start()
     print('Transport started')
-    while True:
-        index, message = (await ainput()).split()
-        await transport.send_message(nodes[int(index)], message)
-        print('Message sent!')
+    for sig in [SIGINT, SIGTERM]:
+        asyncio.get_running_loop().add_signal_handler(sig, raft.shutdown)
+    await raft.done_running.wait()
 
 if __name__ == '__main__':
     asyncio.run(main())
+    # qasync.run(main())

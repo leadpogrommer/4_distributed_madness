@@ -8,6 +8,8 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 aioconsole = "^0.6.2"
+janus = "^1.0.0"
+qasync = "^0.26.0"
 
 
 [build-system]
