@@ -1,8 +1,11 @@
 import asyncio
 import pickle
-from asyncio import StreamReader, StreamWriter, Task
+from asyncio import StreamReader, StreamWriter, Task, Event
 from dataclasses import dataclass
 import traceback
+
+import janus
+
 
 @dataclass(frozen=True, eq=True, order=True)
 class Node:
@@ -35,6 +38,12 @@ class Transport:
         self.running = True
         self.connection_keeper_tasks: list[Task] = []
 
+        self.send_queue = janus.Queue()
+        self.receive_queue = janus.Queue()
+
+        self.uplink_enabled_event = Event()
+        self.downlink_enabled_event = Event()
+
     async def on_client_connected(self, reader: StreamReader, writer: StreamWriter):
         conn = Connection(reader, writer)
         await self.send_to_connection(conn, self.self_node)
@@ -49,7 +58,8 @@ class Transport:
         while self.running:
             try:
                 message = await self.receive_from_connection(conn)
-                await self.on_message_received_callback(node, message)
+                # await self.on_message_received_callback(node, message)
+                await self.receive_queue.async_q.put((node, message))
             except Exception as e:
                 # traceback.print_exception(e)
                 await self.handle_disconnect(node)
@@ -61,7 +71,7 @@ class Transport:
         self.connections[node] = None
         await self.on_node_disconnected_callback(node)
 
-    async def send_message(self, node: Node, message):
+    async def _send_message(self, node: Node, message):
         if self.connections[node] is None:
             # print('Trying to send meesage to desconnected node')
             return
@@ -94,6 +104,12 @@ class Transport:
             await asyncio.sleep(1)
 
     async def start(self):
+        self.uplink_enabled_event.set()
+        self.downlink_enabled_event.set()
+
+        self.sender_loop_task = asyncio.create_task(self._sender_loop())
+        self.receiver_loop_task = asyncio.create_task(self._receiver_loop())
+
         self.server = await asyncio.start_server(self.on_client_connected, self.self_node.ip, self.self_node.port)
         for node in self.nodes:
             if self.should_connect_to(node):
@@ -113,6 +129,28 @@ class Transport:
         return pickle.loads(pickled)
 
     def shutdown(self):
+        self.receiver_loop_task.cancel()
+        self.sender_loop_task.cancel()
         for task in self.connection_keeper_tasks:
             task.cancel()
         self.server.close()
+
+    # network stopping
+    async def _sender_loop(self):
+        while True:
+            await self.uplink_enabled_event.wait()
+            node, msg = await self.send_queue.async_q.get()
+            await self._send_message(node, msg)
+
+    async def send_message(self, node: Node, message):
+        await self.send_queue.async_q.put((node, message))
+
+    async def _receiver_loop(self):
+        while True:
+            await self.downlink_enabled_event.wait()
+            node, msg = await self.receive_queue.async_q.get()
+            try:
+                await self.on_message_received_callback(node, msg)
+            except Exception as e:
+                print('Got exception while processing incoming message: ')
+                traceback.print_exception(e)

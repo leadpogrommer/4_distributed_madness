@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>785</width>
-    <height>600</height>
+    <width>753</width>
+    <height>604</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -23,16 +23,55 @@
      </widget>
     </item>
     <item>
-     <widget class="QWidget" name="send_widget" native="true">
-      <layout class="QHBoxLayout" name="horizontalLayout">
+     <widget class="QWidget" name="top_panel_widget" native="true">
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <widget class="QLineEdit" name="data_line"/>
+        <widget class="QWidget" name="send_widget" native="true">
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLineEdit" name="data_line"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="send_button">
+            <property name="text">
+             <string>Send!</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="send_button">
-         <property name="text">
-          <string>Send!</string>
+        <widget class="QGroupBox" name="network_groupBox">
+         <property name="title">
+          <string>Ростелеком</string>
          </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="1" column="0" colspan="2">
+           <widget class="QPushButton" name="restart_button">
+            <property name="text">
+             <string>Restart in 3s</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="downlink_button">
+            <property name="text">
+             <string>Down</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QPushButton" name="uplink_button">
+            <property name="styleSheet">
+             <string notr="true">background-color: rgba(46, 204, 113)</string>
+            </property>
+            <property name="text">
+             <string>Up</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>
@@ -40,6 +79,9 @@
     </item>
     <item>
      <widget class="QTextEdit" name="log_view">
+      <property name="styleSheet">
+       <string notr="true"/>
+      </property>
       <property name="readOnly">
        <bool>true</bool>
       </property>

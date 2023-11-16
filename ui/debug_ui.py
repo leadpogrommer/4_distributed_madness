@@ -7,7 +7,10 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtGui import QGuiApplication
 from .ui import Ui_MainWindow
 from raft import RaftServer
-
+from multiprocessing import Process
+import sys
+import os
+import subprocess
 
 class MainWindow(QMainWindow):
     def __init__(self, raft: RaftServer, *args, **kwargs):
@@ -27,6 +30,16 @@ class MainWindow(QMainWindow):
 
         self.ui.send_button.clicked.connect(self.send_data)
 
+        self.ui.restart_button.clicked.connect(self.restart_raft)
+        self.ui.downlink_button.clicked.connect(self.toggle_downlink)
+        self.ui.uplink_button.clicked.connect(self.toggle_uplink)
+
+        self.update_link_buttons()
+
+
+
+
+
     def refresh_ui(self):
         self.ui.status_label.setText(f'ROLE: {self.raft.role.name}\ncommitIndex: {self.raft.commitIndex}\nterm: {self.raft.currentTerm}')
 
@@ -37,6 +50,9 @@ class MainWindow(QMainWindow):
                 line = f'<b>{line}</b>'
             log_text += line + '<br>'
         self.ui.log_view.setText(log_text)
+
+        self.ui.uplink_button.setText(f'Up ({self.raft.transport.send_queue.sync_q.qsize()})')
+        self.ui.downlink_button.setText(f'Down ({self.raft.transport.receive_queue.sync_q.qsize()})')
 
 
     def place_window(self):
@@ -59,6 +75,35 @@ class MainWindow(QMainWindow):
         self.raft.append_log_entry(self.ui.data_line.text())
         self.ui.data_line.setText('')
 
+    def restart_raft(self):
+        self.raft.shutdown()
+        cmdline = ' '.join([sys.executable] + sys.argv)
+        subprocess.Popen(["/bin/bash", "-c", "sleep 3; " + cmdline], close_fds=True)
+        exit(0)
+
+    def toggle_uplink(self):
+        if self.raft.transport.uplink_enabled_event.is_set():
+            self.raft.transport.uplink_enabled_event.clear()
+        else:
+            self.raft.transport.uplink_enabled_event.set()
+        self.update_link_buttons()
+
+    def toggle_downlink(self):
+        if self.raft.transport.downlink_enabled_event.is_set():
+            self.raft.transport.downlink_enabled_event.clear()
+        else:
+            self.raft.transport.downlink_enabled_event.set()
+        self.update_link_buttons()
+
+    def update_link_buttons(self):
+        de = self.raft.transport.downlink_enabled_event.is_set()
+        ue = self.raft.transport.uplink_enabled_event.is_set()
+        def color(b: bool):
+            return f"background-color: {'green' if b else 'red'}"
+        self.ui.downlink_button.setStyleSheet(color(de))
+        self.ui.uplink_button.setStyleSheet(color(ue))
+
+
 
 async def run_debug_ui(raft: RaftServer):
     app = QApplication(sys.argv)
@@ -71,3 +116,11 @@ async def run_debug_ui(raft: RaftServer):
 
 def start_debug_ui(raft: RaftServer):
     asyncio.create_task(run_debug_ui(raft))
+
+
+# def child_process_fn(path, argv):
+#     import time
+#     print('ama child', flush=True)
+#     time.sleep(3)
+#     print('ama child down sleeping', flush=True)
+#     os.execv(sys.executable, [sys.executable]+argv)
