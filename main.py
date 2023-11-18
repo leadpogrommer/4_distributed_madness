@@ -1,6 +1,8 @@
 import asyncio
 from signal import SIGINT, SIGTERM
 import sys
+
+from distributed_map import DistributedDict
 from ui.debug_ui import start_debug_ui
 
 from raft import RaftServer
@@ -27,8 +29,11 @@ async def main():
     transport = Transport(
         my_node, nodes, on_message, on_connected, on_disconnected
     )
-    raft = RaftServer(transport)
-    start_debug_ui(raft)
+
+    dist_map = DistributedDict()
+
+    raft = RaftServer(transport, dist_map.apply_log_entry)
+    start_debug_ui(raft, dist_map)
     await raft.start()
     print('Transport started')
     for sig in [SIGINT, SIGTERM]:

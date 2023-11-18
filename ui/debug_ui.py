@@ -11,9 +11,10 @@ from multiprocessing import Process
 import sys
 import os
 import subprocess
+from distributed_map import MapSet, MapRemove
 
 class MainWindow(QMainWindow):
-    def __init__(self, raft: RaftServer, *args, **kwargs):
+    def __init__(self, raft: RaftServer, ddict: dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.raft = raft
@@ -35,8 +36,10 @@ class MainWindow(QMainWindow):
         self.ui.uplink_button.clicked.connect(self.toggle_uplink)
 
         self.update_link_buttons()
+        self.ddict = ddict
 
-
+        self.ui.map_del_button.clicked.connect(self.send_map_delete)
+        self.ui.map_set_button.clicked.connect(self.send_map_set)
 
 
 
@@ -53,6 +56,8 @@ class MainWindow(QMainWindow):
 
         self.ui.uplink_button.setText(f'Up ({self.raft.transport.send_queue.sync_q.qsize()})')
         self.ui.downlink_button.setText(f'Down ({self.raft.transport.receive_queue.sync_q.qsize()})')
+
+        self.ui.map_data_label.setText(f'Map: {self.ddict}')
 
 
     def place_window(self):
@@ -103,19 +108,31 @@ class MainWindow(QMainWindow):
         self.ui.downlink_button.setStyleSheet(color(de))
         self.ui.uplink_button.setStyleSheet(color(ue))
 
+    def clear_map_inputs(self):
+        self.ui.map_action_key.clear()
+        self.ui.map_action_value.clear()
+
+    def send_map_delete(self):
+        self.raft.append_log_entry(MapRemove(self.ui.map_action_key.text()))
+        self.clear_map_inputs()
+
+    def send_map_set(self):
+        self.raft.append_log_entry(MapSet(self.ui.map_action_key.text(), self.ui.map_action_value.text()))
+        self.clear_map_inputs()
 
 
-async def run_debug_ui(raft: RaftServer):
+
+async def run_debug_ui(raft: RaftServer, ddict: dict):
     app = QApplication(sys.argv)
-    w = MainWindow(raft)
+    w = MainWindow(raft, ddict)
     w.show()
     while True:
         await asyncio.sleep(1/30)
         app.sendPostedEvents()
         app.processEvents()
 
-def start_debug_ui(raft: RaftServer):
-    asyncio.create_task(run_debug_ui(raft))
+def start_debug_ui(raft: RaftServer, ddict):
+    asyncio.create_task(run_debug_ui(raft, ddict))
 
 
 # def child_process_fn(path, argv):

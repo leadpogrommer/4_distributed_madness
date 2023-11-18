@@ -84,7 +84,7 @@ class RaftServer:
     def prev_log_term(self):
         return self.log[-1].term
 
-    def __init__(self, transport: Transport):
+    def __init__(self, transport: Transport, apply_callback):
         self.log = [LogEntry(self.currentTerm, 'NOTHING')]
         self.transport: Transport = transport
         self.message_handlers = {
@@ -95,6 +95,7 @@ class RaftServer:
             SendValueToLeader: self.on_request_from_client,
         }
         self.transport.on_message_received_callback = self.on_message
+        self.apply_callback = apply_callback
 
     async def start(self):
         await self.transport.start()
@@ -191,6 +192,9 @@ class RaftServer:
         # 5. If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of last new entry)
         if req.leaderCommit > self.commitIndex:
             self.commitIndex = min(req.leaderCommit, len(self.log) - 1)
+
+        self._appply_pending_log_entries()
+
         reply(True)
 
         # TODO: Apply to state machine
@@ -221,7 +225,8 @@ class RaftServer:
                 max_n = n
         if max_n is not None:
             self.commitIndex = max_n
-        self._send_new_dickpics_to_fucking_slaves()
+        self._send_log_entries_to_followers()
+        self._appply_pending_log_entries()
 
     async def on_vote_request(self, node: Node, req: VoteRequest):
         res = VoteResponse(self.currentTerm, False)
@@ -292,7 +297,7 @@ class RaftServer:
             print('ERROR: trying to append entry while not being a leader')
         entry = LogEntry(self.currentTerm, value)
         self.log.append(entry)
-        self._send_new_dickpics_to_fucking_slaves()
+        self._send_log_entries_to_followers()
 
     def append_log_entry(self, value: Any):
         if self.role == Role.LEADER:
@@ -302,7 +307,7 @@ class RaftServer:
         else:
             print('ERROR: cannot send entry to leader: leader id unknown')
 
-    def _send_new_dickpics_to_fucking_slaves(self):
+    def _send_log_entries_to_followers(self):
         if self.role != Role.LEADER or len(self.log) == 0:
             return
         for node in self.transport.nodes:
@@ -318,9 +323,14 @@ class RaftServer:
                     leaderCommit=self.commitIndex,
                 )))
 
-
-
-
+    def _appply_pending_log_entries(self):
+        for i in range(self.lastApplied+1, self.commitIndex+1):
+            try:
+                self.apply_callback(self.log[i].data)
+            except Exception as e:
+                print(f'Exception while applying entry #{i} ({self.log[i].data})')
+                traceback.print_exception(e)
+        self.lastApplied = self.commitIndex
 
 
 
