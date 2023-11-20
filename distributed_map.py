@@ -13,6 +13,13 @@ class MapRemove:
     key: Any
 
 
+@dataclass
+class MapCAS:
+    key: Any
+    old: Any
+    new: Any
+
+
 class DistributedDict(dict):
     def apply_log_entry(self, entry):
         match entry:
@@ -22,6 +29,12 @@ class DistributedDict(dict):
             case MapRemove():
                 print(f'Applying del operation: {entry}')
                 del self[entry.key]
+            case MapCAS():
+                if entry.old == self[entry.key]:
+                    print('CAS successful')
+                    self[entry.key] = entry.new
+                else:
+                    print('CAS Unsuccessful')
             case _:
                 print(f'Trying to apply unknown action: {entry}')
         print(f'Map state: {self}')

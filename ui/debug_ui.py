@@ -1,6 +1,4 @@
 import asyncio
-import sys
-from threading import Thread
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication
@@ -11,7 +9,8 @@ from multiprocessing import Process
 import sys
 import os
 import subprocess
-from distributed_map import MapSet, MapRemove
+from distributed_map import MapSet, MapRemove, MapCAS
+
 
 class MainWindow(QMainWindow):
     def __init__(self, raft: RaftServer, ddict: dict, *args, **kwargs):
@@ -40,7 +39,7 @@ class MainWindow(QMainWindow):
 
         self.ui.map_del_button.clicked.connect(self.send_map_delete)
         self.ui.map_set_button.clicked.connect(self.send_map_set)
-
+        self.ui.map_cas_button.clicked.connect(self.send_map_cas)
 
 
     def refresh_ui(self):
@@ -58,7 +57,6 @@ class MainWindow(QMainWindow):
         self.ui.downlink_button.setText(f'Down ({self.raft.transport.receive_queue.sync_q.qsize()})')
 
         self.ui.map_data_label.setText(f'Map: {self.ddict}')
-
 
     def place_window(self):
         window_idx = self.raft.transport.self_node.port % 10
@@ -111,6 +109,7 @@ class MainWindow(QMainWindow):
     def clear_map_inputs(self):
         self.ui.map_action_key.clear()
         self.ui.map_action_value.clear()
+        self.ui.map_action_old_value.clear()
 
     def send_map_delete(self):
         self.raft.append_log_entry(MapRemove(self.ui.map_action_key.text()))
@@ -120,6 +119,13 @@ class MainWindow(QMainWindow):
         self.raft.append_log_entry(MapSet(self.ui.map_action_key.text(), self.ui.map_action_value.text()))
         self.clear_map_inputs()
 
+    def send_map_cas(self):
+        self.raft.append_log_entry(MapCAS(
+            key=self.ui.map_action_key.text(),
+            old=self.ui.map_action_old_value.text(),
+            new=self.ui.map_action_value.text(),
+        ))
+        self.clear_map_inputs()
 
 
 async def run_debug_ui(raft: RaftServer, ddict: dict):
@@ -131,13 +137,6 @@ async def run_debug_ui(raft: RaftServer, ddict: dict):
         app.sendPostedEvents()
         app.processEvents()
 
+
 def start_debug_ui(raft: RaftServer, ddict):
     asyncio.create_task(run_debug_ui(raft, ddict))
-
-
-# def child_process_fn(path, argv):
-#     import time
-#     print('ama child', flush=True)
-#     time.sleep(3)
-#     print('ama child down sleeping', flush=True)
-#     os.execv(sys.executable, [sys.executable]+argv)
