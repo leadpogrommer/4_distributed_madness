@@ -210,7 +210,8 @@ class RaftServer:
             self.nextIndex[node] -= 1
             if self.nextIndex[node] < 0:
                 print('FUCK')
-                exit(1)
+                self.nextIndex[node] = 0
+                # exit(1)
 
         max_n = None
         # print('Trying to increase commitIndex')

@@ -12,6 +12,12 @@ class Node:
     ip: str
     port: int
 
+    def __str__(self):
+        return f'N#{self.port%10}'
+    
+    def __repr__(self):
+        return f'N#{self.port%10}'
+
 
 @dataclass
 class Connection:

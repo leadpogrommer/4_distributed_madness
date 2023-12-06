@@ -9,7 +9,8 @@ from multiprocessing import Process
 import sys
 import os
 import subprocess
-from distributed_map import MapSet, MapRemove, MapCAS
+from distributed_map import MapSet, MapRemove, MapCAS, MapLockAcquire, MapLockProlongate, MapLockRelease
+from time import time
 
 
 class MainWindow(QMainWindow):
@@ -41,6 +42,10 @@ class MainWindow(QMainWindow):
         self.ui.map_set_button.clicked.connect(self.send_map_set)
         self.ui.map_cas_button.clicked.connect(self.send_map_cas)
 
+        self.ui.mutex_button.clicked.connect(self.handle_lock)
+
+        asyncio.create_task(self.lock_keeper())
+
 
     def refresh_ui(self):
         self.ui.status_label.setText(f'ROLE: {self.raft.role.name}\ncommitIndex: {self.raft.commitIndex}\nterm: {self.raft.currentTerm}')
@@ -57,6 +62,13 @@ class MainWindow(QMainWindow):
         self.ui.downlink_button.setText(f'Down ({self.raft.transport.receive_queue.sync_q.qsize()})')
 
         self.ui.map_data_label.setText(f'Map: {self.ddict}')
+
+        mb = self.ui.mutex_button
+        owner = self.ddict.get_owner()
+        i_control = owner == self.raft.transport.self_node
+        mb.setText('Get' if not i_control else 'Release')
+        color = 'green' if i_control else ('red' if owner is not None else 'white')
+        mb.setStyleSheet(f"background-color: {color}")
 
     def place_window(self):
         window_idx = self.raft.transport.self_node.port % 10
@@ -127,6 +139,30 @@ class MainWindow(QMainWindow):
         ))
         self.clear_map_inputs()
 
+    async def lock_keeper(self):
+        while True:
+            self.raft.append_log_entry(
+                MapLockProlongate(
+                    self.raft.transport.self_node,
+                    time(),
+                )
+            )
+            await asyncio.sleep(1)
+
+    def handle_lock(self):
+        if self.ddict.get_owner() == self.raft.transport.self_node:
+            self.raft.append_log_entry(
+                MapLockRelease(
+                    self.raft.transport.self_node
+                )
+            )
+        else:
+            self.raft.append_log_entry(
+                MapLockAcquire(
+                    self.raft.transport.self_node,
+                    time(),
+                )
+            )
 
 async def run_debug_ui(raft: RaftServer, ddict: dict):
     app = QApplication(sys.argv)

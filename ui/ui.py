@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui/raft.ui'
+# Form implementation generated from reading ui file 'raft.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.10
 #
@@ -116,6 +116,9 @@ class Ui_MainWindow(object):
         self.send_button = QtWidgets.QPushButton(self.send_widget)
         self.send_button.setObjectName("send_button")
         self.verticalLayout_2.addWidget(self.send_button)
+        self.mutex_button = QtWidgets.QPushButton(self.send_widget)
+        self.mutex_button.setObjectName("mutex_button")
+        self.verticalLayout_2.addWidget(self.mutex_button)
         self.horizontalLayout_2.addWidget(self.send_widget)
         self.gridLayout_2.addWidget(self.top_panel_widget, 1, 0, 1, 1)
         self.log_view = QtWidgets.QTextEdit(self.centralwidget)
@@ -150,5 +153,6 @@ class Ui_MainWindow(object):
         self.map_action_old_value.setPlaceholderText(_translate("MainWindow", "old value (for CAS)"))
         self.map_cas_button.setText(_translate("MainWindow", "CAS"))
         self.send_button.setText(_translate("MainWindow", "Send!"))
+        self.mutex_button.setText(_translate("MainWindow", "Lock"))
         self.status_label.setText(_translate("MainWindow", "TextLabel"))
         self.map_data_label.setText(_translate("MainWindow", "TextLabel"))

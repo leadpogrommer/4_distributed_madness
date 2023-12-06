@@ -169,6 +169,13 @@
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QPushButton" name="mutex_button">
+            <property name="text">
+             <string>Lock</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
